@@ -107,6 +107,10 @@ def on_word_completed(word):
         else:
             print("Tried counter-clockwise rotation, but the servo driver was not detected!")
 
+    elif word == "SSDS":
+        print("Rat sequence!")
+        display_face_and_return_to_neutral('rat')
+
     elif word == "SSDD":
         print("Stopping right arm.")
         if kit is not None:
@@ -258,6 +262,7 @@ if __name__ == "__main__":
     set_cpu_affinity(fart_thread, [1, 2])
     set_cpu_affinity(camera_thread, [3])
 
+    display_face_and_return_to_neutral('rat')
     # Wait for both threads to complete (if needed)
     camera_thread.join()
     clap_thread.join()

@@ -1,3 +1,4 @@
+import os
 import threading
 import logging
 from lib import LCD_2inch
@@ -8,7 +9,8 @@ import time
 frame_count = {
   'player': 10, 'cabana': 4, 'slime': 10, 'blink': 39, 'happy': 45,
   'sad': 47, 'dizzy': 67, 'excited': 24, 'neutral': 61, 'happy2': 20,
-  'angry': 20, 'happy3': 26, 'bootup3': 124, 'blink2': 20
+  'angry': 20, 'happy3': 26, 'bootup3': 124, 'blink2': 20,
+  'rat': 50
 }
 
 class DisplayControl:
@@ -58,7 +60,11 @@ class DisplayControl:
                 for j in range(frame_count[emotion]):
                     if self.stop_now_animation_flag:
                         return  # Stop the animation if flagged
-                    image = Image.open(f'{self.image_dir}{emotion}/frame{j}.png')
+                    for i in [".png", ".jpg"]:
+                        filename = f'{self.image_dir}{emotion}/frame{j}{i}'
+                        if os.path.exists(filename):
+                          break
+                    image = Image.open(filename)
                     self.disp.ShowImage(image)
                 if self.stop_animation_flag:
                     return  # Stop the animation if flagged
