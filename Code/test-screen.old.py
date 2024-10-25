@@ -1,27 +1,14 @@
-import importlib.util
-try:
-    importlib.util.find_spec('RPi.GPIO')
-    import RPi.GPIO as GPIO
-except ImportError:
-    """
-    import FakeRPi.GPIO as GPIO
-    OR
-    import FakeRPi.RPiO as RPiO
-    """
-	
-    import FakeRPi.GPIO as GPIO
-
 import time
 from board import SCL, SDA
 import busio
-from adafruit_servokit import ServoKit
+#from adafruit_servokit import ServoKit
 import multiprocessing
 
-
+import RPi.GPIO as GPIO
 import os
 
 import os
-import sys
+import sys 
 import time
 import logging
 import spidev as SPI
@@ -31,30 +18,30 @@ from PIL import Image,ImageDraw,ImageFont
 
 from random import randint
 
-touch_pin = 17
-vibration_pin = 22
+#touch_pin = 17
+#vibration_pin = 22
 
 
 
 # Set up pins
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(touch_pin, GPIO.IN)
-GPIO.setup(vibration_pin, GPIO.IN)
+#GPIO.setup(touch_pin, GPIO.IN)
+#GPIO.setup(vibration_pin, GPIO.IN)
 
 # Raspberry Pi pin configuration for LCD:
-# RST = 27
-# DC = 25
-# BL = 18
-# bus = 0
-# device = 0
+RST = 27
+DC = 25
+BL = 18
+bus = 0 
+device = 0 # CS -> GPIO8 = CE0_N 
 
-kit=ServoKit(channels=16)
-servo=3
+#kit=ServoKit(channels=16)
+#servo=3
 
 #Declare Servos
-servoR = kit.servo[1]#Reference at 0
-servoL = kit.servo[2]#Reference at 180
-servoB = kit.servo[0]#Reference at 90
+#servoR = kit.servo[5]#Reference at 0
+#servoL = kit.servo[11]#Reference at 180
+#servoB = kit.servo[13]#Reference at 90
 
 frame_count = {
   'player': 10,
@@ -79,7 +66,6 @@ def check_sensor():
     current_state = 0
     while True:
         if (GPIO.input(touch_pin) == GPIO.HIGH):
-            print('touch')
             if previous_state != current_state:
                 if (q.qsize()==0):
                     event.set()
@@ -151,7 +137,6 @@ def happy():
                 servoL.angle = 210 - i #at 90
                 servoB.angle = 210 - i
             time.sleep(0.004)
-
 def angry():
     for i in range(5):
         baserotate(90,randint(0,30),0.01)
@@ -208,13 +193,16 @@ def sound(emotion):
         os.system("aplay /home/pi/Desktop/EmoBot/sound/"+emotion+".wav")
 
 def show(emotion,count):
-    for i in range(count):
+    i = 0
+    while (count < 0) or (i < count): #for i in range(count):
+        if count > 0:
+             i += 1
         try:
             for i in range(frame_count[emotion]):
-                image = Image.open('/home/pi/Emo/Code/emotions/'+emotion+'/frame'+str(i)+'.png')	
+                image = Image.open('/home/pi/Emo/Code/emotions/'+emotion+'/frame'+str(i)+'.png')
                 disp.ShowImage(image)
         except IOError as e:
-            logging.info(e)    
+            logging.info(e)
         except KeyboardInterrupt:
             disp.module_exit()
             servoDown()
@@ -222,48 +210,9 @@ def show(emotion,count):
             exit()
 
 if __name__ == '__main__':
-    p1 = multiprocessing.Process(target=check_sensor, name='p1')
-    p1.start()
-    bootup()
-    while True:
-        if event.is_set():
-                try:
-                    p5.terminate()
-                except NameError:
-                    print('p5 not exist. NameError captured.')
-                event.clear()
-                emotion = q.get()
-                q.empty()
-                print(emotion)
-                p2 = multiprocessing.Process(target=show,args=(emotion,4))
-                p3 = multiprocessing.Process(target=sound,args=(emotion,))
-                if emotion == 'happy':
-                    p4 = multiprocessing.Process(target=happy)
-                elif emotion == 'angry':
-                    p4 = multiprocessing.Process(target=angry)
-                elif emotion == 'sad':
-                    p4 = multiprocessing.Process(target=sad)
-                elif emotion == 'excited':
-                    p4 = multiprocessing.Process(target=excited)
-                elif emotion == 'blink':
-                    p4 = multiprocessing.Process(target=blink)
-                else:
-                    continue
-                p2.start()
-                p3.start()
-                p4.start()
-                p2.join()
-                p3.join()
-                p4.join()
-        else:
-            p = multiprocessing.active_children()
-            for i in p:
-                if i.name not in ['p1','p5','p6']:
-                    i.terminate()
-            neutral = normal[0]
-            p5 = multiprocessing.Process(target=show,args=(neutral,4),name='p5')
-            p6 = multiprocessing.Process(target=baserotate,args=(90,60,0.02),name='p6')
-            p5.start()
-            p6.start()
-            p6.join()
-            p5.join()
+    #p1 = multiprocessing.Process(target=check_sensor, name='p1')
+    #p1.start()
+    #bootup()
+    #show('bootup3',1)
+    #show('slime',-1)
+    show('cabana',-1)

@@ -1,0 +1,62 @@
+import sounddevice as sd
+import soundfile as sf
+import threading
+
+audio_clips = {
+  'wetoy': ('/home/pi/Emo/Code/audios/wetoy-norm.wav', 0.1),
+  'ohyeah': ('/home/pi/Emo/Code/audios/ohyeah-norm.wav', 0.1),
+  'ohno': ('/home/pi/Emo/Code/audios/ohno-norm.wav', 0.1),
+  'fart': ('/home/pi/Emo/Code/audios/732055__blubberfreak__blubberfreak-fart-1.wav', 0.8),
+}
+
+playing_lock = threading.Lock()
+
+
+
+class SoundModule:
+    def __init__(self, wav_file, volume_factor=1.0):
+        """
+        Initialize the SoundModule with the path to a .wav file and the desired volume factor.
+        
+        Args:
+            wav_file (str): Path to the .wav file.
+            volume_factor (float): Volume scaling factor (1.0 is original volume, 0.5 is half volume, etc.).
+        """
+        self.wav_file = wav_file
+        self.volume_factor = volume_factor
+        self.data = None
+        self.sample_rate = None
+        self._load_sound()
+
+    def _load_sound(self):
+        """Load the .wav file and apply the volume factor."""
+        try:
+            self.data, self.sample_rate = sf.read(self.wav_file)
+            # Adjust the volume by scaling the audio data
+            self.data = self.data * self.volume_factor
+        except FileNotFoundError:
+            print(f"Error: The file {self.wav_file} was not found.")
+        except Exception as e:
+            print(f"An error occurred while loading the sound file: {e}")
+
+    def play(self):
+        """Play the loaded .wav file with the adjusted volume."""
+        if self.data is not None:
+            print(f"Playing {self.wav_file} at {self.volume_factor * 100}% volume")
+            sd.play(self.data, samplerate=self.sample_rate)
+            sd.wait()  # Wait until the file finishes playing
+        else:
+            print("No sound data to play.")
+
+def play_clip(clip_name):
+    sound_module = SoundModule(wav_file=audio_clips[clip_name][0], volume_factor=audio_clips[clip_name][1])
+    
+    # Create a new thread for playing the sound
+    play_thread = threading.Thread(target=sound_module.play)
+    play_thread.start()  # Start the thread
+
+# Example usage:
+if __name__ == "__main__":
+    #sound_module = SoundModule(wav_file='/home/pi/Emo/Code/audios/wetoy-norm.wav', volume_factor=0.1)
+    #sound_module = SoundModule(wav_file=audio_clips['fart'][0], volume_factor=audio_clips['fart'][1])
+    play_clip('fart')

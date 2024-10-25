@@ -34,13 +34,14 @@ import spidev
 import logging
 import numpy as np
 
-class RaspberryPi:
-    def __init__(self,spi=spidev.SpiDev(0,0),spi_freq=40000000,rst = 27,dc = 25,bl = 18,bl_freq=1000,i2c=None,i2c_freq=100000):
+class RaspberryPi: # bl default was 18, now is None
+    def __init__(self,spi=spidev.SpiDev(0,0),spi_freq=40000000,rst = 27,dc = 25,bl = None,bl_freq=1000,i2c=None,i2c_freq=100000):
         import RPi.GPIO      
         self.np=np
         self.RST_PIN= rst
         self.DC_PIN = dc
         self.BL_PIN = bl
+        print(f"BL_PIN: {self.BL_PIN}")
         self.SPEED  =spi_freq
         self.BL_freq=bl_freq
         self.GPIO = RPi.GPIO
@@ -49,8 +50,10 @@ class RaspberryPi:
         self.GPIO.setwarnings(False)
         self.GPIO.setup(self.RST_PIN,   self.GPIO.OUT)
         self.GPIO.setup(self.DC_PIN,    self.GPIO.OUT)
-        self.GPIO.setup(self.BL_PIN,    self.GPIO.OUT)
-        self.GPIO.output(self.BL_PIN,   self.GPIO.HIGH)        
+
+        if self.BL_PIN is not None:
+            self.GPIO.setup(self.BL_PIN,    self.GPIO.OUT)
+            self.GPIO.output(self.BL_PIN,   self.GPIO.HIGH)        
         #Initialize SPI
         self.SPI = spi
         if self.SPI!=None :
@@ -78,9 +81,10 @@ class RaspberryPi:
     def module_init(self):
         self.GPIO.setup(self.RST_PIN, self.GPIO.OUT)
         self.GPIO.setup(self.DC_PIN, self.GPIO.OUT)
-        self.GPIO.setup(self.BL_PIN, self.GPIO.OUT)
-        self._pwm=self.GPIO.PWM(self.BL_PIN,self.BL_freq)
-        self._pwm.start(100)
+        if self.BL_PIN is not None:
+            self.GPIO.setup(self.BL_PIN, self.GPIO.OUT)
+            self._pwm=self.GPIO.PWM(self.BL_PIN,self.BL_freq)
+            self._pwm.start(100)
         if self.SPI!=None :
             self.SPI.max_speed_hz = self.SPEED        
             self.SPI.mode = 0b00     
@@ -96,7 +100,8 @@ class RaspberryPi:
         self.GPIO.output(self.DC_PIN, 0)        
         self._pwm.stop()
         time.sleep(0.001)
-        self.GPIO.output(self.BL_PIN, 1)
+        if self.BL_PIN is not None:
+            self.GPIO.output(self.BL_PIN, 1)
         #self.GPIO.cleanup()
 
 

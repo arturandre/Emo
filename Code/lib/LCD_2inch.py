@@ -3,7 +3,6 @@ import time
 from . import lcdconfig
 
 class LCD_2inch(lcdconfig.RaspberryPi):
-
     width = 240
     height = 320 
     def command(self, cmd):

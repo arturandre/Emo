@@ -1,0 +1,6 @@
+RPi.GPIO==0.7.1
+adafruit-blinka==8.32.0
+adafruit-circuitpython-servokit
+psutil
+sounddevice
+soundfile

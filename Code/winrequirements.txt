@@ -1,0 +1,2 @@
+git+https://github.com/sn4k3/FakeRPi
+adafruit-blinka==8.32.0
