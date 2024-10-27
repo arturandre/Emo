@@ -39,20 +39,18 @@ class SoundModule:
 
     def _play_thread(self, clip_name):
         """Play the audio clip from memory."""
-        if clip_name in self.audio_data:
-            data, sample_rate = self.audio_data[clip_name]
-            print(f"Playing {clip_name} from memory")
-            with self.playing_lock:  # Ensure thread safety during playback
+        with self.playing_lock:  # Ensure thread safety during playback
+            if clip_name in self.audio_data:
+                data, sample_rate = self.audio_data[clip_name]
+                print(f"Playing {clip_name} from memory")
                 sd.play(data, samplerate=sample_rate)
                 sd.wait()  # Wait until the file finishes playing
-        else:
-            print(f"Audio clip {clip_name} not found in memory")
+            else:
+                print(f"Audio clip {clip_name} not found in memory")
 
     def play_clip(self, clip_name):
         """Play the audio clip from memory."""
         if clip_name in self.audio_data:
-            data, sample_rate = self.audio_data[clip_name]
-            print(f"Playing {clip_name} from memory")
             play_thread = threading.Thread(target=self._play_thread, args=(clip_name,))
             play_thread.start() 
         else:

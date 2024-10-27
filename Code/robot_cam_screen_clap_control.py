@@ -6,6 +6,7 @@ from clap_module import ClapDetector
 from adafruit_servokit import ServoKit
 from display_module import DisplayControl  # Importing the updated display module
 
+
 # Initialize the ServoKit instance for 16 channels
 try:
     kit = ServoKit(channels=16)
@@ -13,12 +14,14 @@ except ValueError: # The motors were not detected.
     print("Motor driver not detected, is it connected?")
     kit = None
 
+import os
+os.system("raspi-gpio set 18 a0")  # Set GPIO 18 to PCM_Clock
+
+
 # Initialize the DisplayControl instance
 display = DisplayControl()
 
 
-import os
-os.system("raspi-gpio set 18 a0")  # Set GPIO 18 to PCM_Clock
 
 
 

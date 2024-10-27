@@ -1,0 +1,105 @@
+import sounddevice as sd
+import numpy as np
+from scipy.signal import find_peaks
+from scipy.ndimage import gaussian_filter1d
+from adafruit_servokit import ServoKit
+import time
+
+# Initialize ServoKit instance
+kit = ServoKit(channels=16)
+
+# Define poses (angles for right arm, left arm, base)
+poses = [
+    {'right_arm': 45, 'left_arm': 0, 'base': 30},
+    {'right_arm': 90, 'left_arm': 45, 'base': 45},
+    {'right_arm': 0, 'left_arm': 90, 'base': 15},
+    {'right_arm': 135, 'left_arm': 135, 'base': 20},
+    {'right_arm': 180, 'left_arm': 180, 'base': 0}
+]
+
+# Parameters
+SAMPLE_RATE = 44100  # Sampling rate for the microphone
+WINDOW_DURATION = 5  # Duration of the analysis window in seconds
+BUFFER_SIZE = int(SAMPLE_RATE * WINDOW_DURATION)  # Number of samples in a 5-second window
+THRESHOLD = 0.1  # Threshold to zero out background noise
+GAUSSIAN_SIGMA = 2  # Smoothing factor for Gaussian filter
+audio_buffer = []  # To store recorded audio data for BPM estimation
+
+def apply_threshold(signal, threshold):
+    """Apply a threshold to the signal, zeroing out values below the threshold."""
+    return np.where(np.abs(signal) > threshold, signal, 0)
+
+def apply_gaussian_smoothing(signal, sigma):
+    """Apply Gaussian smoothing to the signal."""
+    smoothed_signal = gaussian_filter1d(signal, sigma=sigma)
+    return smoothed_signal
+
+def find_local_maxima(signal, samplerate):
+    """Find local maxima in the signal to detect beats."""
+    peaks, _ = find_peaks(signal, distance=samplerate / 2)  # Ensure peaks are separated by at least half a second
+    return peaks
+
+def calculate_bpm(peaks, samplerate):
+    """Calculate the BPM based on peak intervals."""
+    if len(peaks) < 2:
+        return 0
+    intervals = np.diff(peaks) / samplerate  # Convert peak distances to seconds
+    avg_interval = np.mean(intervals)
+    bpm = 60 / avg_interval if avg_interval != 0 else 0
+    return int(bpm)
+
+def process_audio(indata, frames, time_info, status):
+    """Callback function to process audio in real-time."""
+    global audio_buffer
+    audio_data = indata[:, 0]  # Flatten to mono by taking only the first channel
+    audio_buffer.append(audio_data.copy())
+
+def move_to_pose(pose):
+    """Move robot to the specified pose."""
+    print(f"Moving to pose: Right Arm: {pose['right_arm']}°, Left Arm: {pose['left_arm']}°, Base: {pose['base']}°")
+    kit.servo[0].angle = pose['right_arm']  # Right arm
+    kit.servo[1].angle = pose['left_arm']  # Left arm
+    kit.servo[2].angle = pose['base']      # Base
+
+def dance_to_bpm(bpm):
+    """Control robot movement based on BPM."""
+    interval = 60 / bpm  # Time interval between moves (in seconds)
+    print(f"Estimated BPM: {bpm}, Moving every {interval:.2f} seconds")
+
+    pose_index = 0  # Start from the first pose
+    while True:
+        move_to_pose(poses[pose_index])  # Move to the current pose
+        time.sleep(interval)  # Wait based on the BPM
+        
+        # Cycle to the next pose
+        pose_index = (pose_index + 1) % len(poses)
+
+# Main program to start recording from the microphone and estimate BPM
+print("Starting BPM estimation and robot dancing... Press Ctrl+C to stop.")
+
+try:
+    with sd.InputStream(callback=process_audio, channels=1, samplerate=SAMPLE_RATE, blocksize=BUFFER_SIZE):
+        while True:
+            time.sleep(WINDOW_DURATION)  # Wait for the window duration (5 seconds)
+
+            if len(audio_buffer) == 0:
+                print("No audio data received yet.")
+                continue
+
+            # Concatenate and take only the last 5 seconds of audio (current window)
+            audio_data = np.concatenate(audio_buffer)[-BUFFER_SIZE:]
+
+            # Apply threshold and smoothing
+            thresholded_signal = apply_threshold(audio_data, THRESHOLD)
+            smoothed_signal = apply_gaussian_smoothing(thresholded_signal, GAUSSIAN_SIGMA)
+
+            # Detect peaks and estimate BPM
+            peaks = find_local_maxima(smoothed_signal, SAMPLE_RATE)
+            bpm = calculate_bpm(peaks, SAMPLE_RATE)
+
+            if bpm > 0:
+                # Start dancing based on the estimated BPM
+                dance_to_bpm(bpm)
+
+except KeyboardInterrupt:
+    print("Stopping robot dancing and BPM estimation.")

@@ -13,6 +13,8 @@ frame_count = {
   'rat': 50
 }
 
+display_lock = threading.Lock()
+
 class DisplayControl:
     def __init__(self):
         """Initialize the LCD display and variables for controlling animations"""
@@ -22,6 +24,16 @@ class DisplayControl:
         self.current_emotion = None
         self.animation_thread = None
         self.stop_animation_flag = False
+
+    def display_neutral(self):
+        self.show('neutral', -1)  # Show 'neutral' indefinitely
+
+    def display_face_and_return_to_neutral(self, face):
+        # Show the 'happy' face, interrupt any current animation, then return to 'neutral'
+        with display_lock:
+            self.show(face, 1, stop_now=True)  # Show 'dizzy' face once
+            self.display_neutral()  # Go back to 'neutral' afterward
+
     
     def show(self, emotion, count=-1, stop_now=False):
         """

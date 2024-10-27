@@ -6,7 +6,8 @@ import psutil  # For setting CPU affinity
 from camera_module import CameraModule
 from clap_module import ClapDetector
 from adafruit_servokit import ServoKit
-from display_module import DisplayControl
+from display_module import DisplayControl, display_neutral, display_face_and_return_to_neutral
+# Function to display 'neutral' when idle and 'happy' when a word is detected
 from sound_module import SoundModule  # Updated import to use the SoundModule class
 import os
 
@@ -73,14 +74,14 @@ def move_arm(arm_side, up_down):
     print(f"Moving {arm_side} arm {up_down}")
 
 # Function to display 'neutral' when idle and 'happy' when a word is detected
-def display_neutral():
-    display.show('neutral', -1)  # Show 'neutral' indefinitely
+# def display_neutral():
+#     display.show('neutral', -1)  # Show 'neutral' indefinitely
 
-def display_face_and_return_to_neutral(face):
-    # Show the 'happy' face, interrupt any current animation, then return to 'neutral'
-    with interacting_lock:
-        display.show(face, 1, stop_now=True)  # Show 'dizzy' face once
-        display_neutral()  # Go back to 'neutral' afterward
+# def display_face_and_return_to_neutral(face):
+#     # Show the 'happy' face, interrupt any current animation, then return to 'neutral'
+#     with interacting_lock:
+#         display.show(face, 1, stop_now=True)  # Show 'dizzy' face once
+#         display_neutral()  # Go back to 'neutral' afterward
 
 # Define the callback function that will be triggered when a word is detected
 def on_word_completed(word):
@@ -109,7 +110,7 @@ def on_word_completed(word):
 
     elif word == "SSDS":
         print("Rat sequence!")
-        display_face_and_return_to_neutral('rat')
+        display.display_face_and_return_to_neutral('rat')
 
     elif word == "SSDD":
         print("Stopping right arm.")
@@ -168,11 +169,11 @@ def on_word_completed(word):
     sound_module = SoundModule()  # Use the singleton instance
     if valid_word:
         sound_module.play_clip('ohyeah')
-        display_face_and_return_to_neutral('happy')
+        display.display_face_and_return_to_neutral('happy')
     else:
         
         sound_module.play_clip('ohno')
-        display_face_and_return_to_neutral('dizzy')
+        display.display_face_and_return_to_neutral('dizzy')
 
 
 def fart():
@@ -185,7 +186,7 @@ def fart():
             sleep(0.5)
             move_body("right")
             sound_module.play_clip('fart')
-            display_face_and_return_to_neutral('excited')
+            display.display_face_and_return_to_neutral('excited')
         else:
             "Accumulating gases..."
         sleep(1.0)
@@ -245,7 +246,7 @@ if __name__ == "__main__":
     sound_module.load_audio_clips()  # Preload audio clips into memory
 
     # Start the display with 'neutral' face initially
-    display_neutral()
+    display.display_neutral()
 
     # Create threads for camera and clap detection
     camera_thread = threading.Thread(target=start_camera_module, args=(args,))
@@ -262,7 +263,7 @@ if __name__ == "__main__":
     set_cpu_affinity(fart_thread, [1, 2])
     set_cpu_affinity(camera_thread, [3])
 
-    display_face_and_return_to_neutral('rat')
+    display.display_face_and_return_to_neutral('rat')
     # Wait for both threads to complete (if needed)
     camera_thread.join()
     clap_thread.join()
