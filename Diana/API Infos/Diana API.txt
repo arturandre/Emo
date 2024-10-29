@@ -1,0 +1,5 @@
+URI do swagger: https://dianaapi-543834107372.us-central1.run.app/v1/docs
+URI da API: https://dianaapi-543834107372.us-central1.run.app
+Acesso: (Query params)
+ - accessName: External-Dev 
+ - key: cba401af31b045de4b45cfb82df9ffe62ecc2b99ca9edbc2aef1738868e3745a
