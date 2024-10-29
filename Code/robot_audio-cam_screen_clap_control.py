@@ -6,7 +6,7 @@ import psutil  # For setting CPU affinity
 from camera_module import CameraModule
 from clap_module import ClapDetector
 from adafruit_servokit import ServoKit
-from display_module import DisplayControl, display_neutral, display_face_and_return_to_neutral
+from display_module import DisplayControl
 # Function to display 'neutral' when idle and 'happy' when a word is detected
 from sound_module import SoundModule  # Updated import to use the SoundModule class
 import os
