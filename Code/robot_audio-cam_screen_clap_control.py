@@ -30,8 +30,12 @@ rng = np.random.default_rng()
 f_chance = 0.01
 interacting_lock = threading.Lock()
 
+ra = 9 # right arm index in motor driver
+la = 10  # left arm index in motor driver
+bb = 11 # base arm index in motor driver
+
 if kit is not None:
-    kit.servo[2].angle = 30
+    kit.servo[bb].angle = 30
 
 # Initialize the DisplayControl instance
 display = DisplayControl()
@@ -47,9 +51,9 @@ def move_body(side):
     if len(errors) > 0:
         raise Exception("\n".join(errors))
     if side == 'left':
-        kit.servo[2].angle = 15
+        kit.servo[bb].angle = 15
     elif side == 'right':
-        kit.servo[2].angle = 45
+        kit.servo[bb].angle = 45
     print(f"Moving base {side}")
 
 def move_arm(arm_side, up_down):
@@ -62,10 +66,10 @@ def move_arm(arm_side, up_down):
         raise Exception(f"up_down expected to be a string 'up' or 'down', but found: {up_down}")
 
     if arm_side == 'left':
-        arm_index = 1
+        arm_index = la
         left_arm_state = up_down
     if arm_side == 'right':
-        arm_index = 0
+        arm_index = ra
         right_arm_state = up_down
     if up_down == 'up':
         kit.servo[arm_index].angle = 0

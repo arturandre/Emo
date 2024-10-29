@@ -22,6 +22,10 @@ poses = [
     {'right_arm': 180, 'left_arm': 180, 'base': 0}
 ]
 
+ra = 9 # right arm index in motor driver
+la = 10  # left arm index in motor driver
+bb = 11 # base arm index in motor driver
+
 # Global variable to stop dancing
 stop_dancing_limit = 30
 stop_dancing = stop_dancing_limit
@@ -107,9 +111,9 @@ class RobotDanceWithMusicDetection:
         for i in range(tinterval):
             t_left = (tinterval - i) / tinterval
             t_done = i / tinterval
-            kit.servo[0].angle = int((t_left) * o_right_arm_pose + t_done * d_right_arm_pose)
-            kit.servo[1].angle = int((t_left) * o_left_arm_pose + t_done * d_left_arm_pose)
-            kit.servo[2].angle = int((t_left) * o_base_pose + t_done * d_base_pose)
+            kit.servo[ra].angle = int((t_left) * o_right_arm_pose + t_done * d_right_arm_pose)
+            kit.servo[la].angle = int((t_left) * o_left_arm_pose + t_done * d_left_arm_pose)
+            kit.servo[bb].angle = int((t_left) * o_base_pose + t_done * d_base_pose)
             time.sleep(0.002)
         
         self.current_pose = pose

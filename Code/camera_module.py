@@ -327,6 +327,10 @@ class CameraModule:
 
     def _process_frame(self, frame):
         """Process each frame, detect arm positions, and trigger callback."""
+
+        #frame = frame.T
+        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+
         if self.use_mpipe:
             arm_state = self._detect_arm_state_mediapipe(frame)
         else:

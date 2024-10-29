@@ -28,6 +28,11 @@ poses = [
     {'right_arm': 180, 'left_arm': 180, 'base': 0}
 ]
 
+ra = 9 # right arm index in motor driver
+la = 10  # left arm index in motor driver
+bb = 11 # base arm index in motor driver
+
+
 class RobotDanceBPM:
     def __init__(self,
                  sample_rate=48000,
@@ -132,9 +137,9 @@ class RobotDanceBPM:
             b_pose = int((t_left)*o_base_pose + t_done*d_base_pose)
             #print(f"{t_left:.2f} {t_done:.2f}",
             #      o_right_arm_pose, d_right_arm_pose, r_pose, l_pose, b_pose)
-            kit.servo[0].angle = r_pose  # Right arm
-            kit.servo[1].angle = l_pose   # Left arm
-            kit.servo[2].angle = b_pose # Base
+            kit.servo[ra].angle = r_pose  # Right arm
+            kit.servo[la].angle = l_pose   # Left arm
+            kit.servo[bb].angle = b_pose # Base
             time.sleep(0.002)
         self.current_pose = pose
 
