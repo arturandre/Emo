@@ -11,6 +11,7 @@ from display_module import DisplayControl
 from sound_module import SoundModule  # Updated import to use the SoundModule class
 import os
 
+
 # Back of the robot
 #                 o   
 #Left arm - 1 # <( )> # Right arm - 0
@@ -192,7 +193,7 @@ def fart():
             sound_module.play_clip('fart')
             display.display_face_and_return_to_neutral('excited')
         else:
-            "Accumulating gases..."
+            print("Accumulating gases...")
         sleep(1.0)
 
 
@@ -220,6 +221,7 @@ def start_camera_module(args):
         video_source=args.video_source,
         show_gui=args.show_gui,
         libcamera=args.libcamera,
+        vid=args.vid,
         use_mpipe=args.mpipe
     )
     camera_module.start()
@@ -241,7 +243,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run arm and clap detection.")
     parser.add_argument("--video_source", type=int, default=0, help="Video source, default is 0 (webcam).")
     parser.add_argument("--show_gui", action="store_true", help="Display GUI for feedback.")
-    parser.add_argument("--libcamera", action="store_true", help="Use libcamera for Raspberry Pi.")
+    parser.add_argument("--libcamera", action="store_true", help="Use libcamera-still for Raspberry Pi.")
+    parser.add_argument("--vid", action="store_true", help="Use libcamera-vid for Raspberry Pi.")
     parser.add_argument("--mpipe", action="store_true", help="Use MediaPipe for arm detection.")
 
     args = parser.parse_args()
@@ -250,7 +253,7 @@ if __name__ == "__main__":
     sound_module.load_audio_clips()  # Preload audio clips into memory
 
     # Start the display with 'neutral' face initially
-    display.display_neutral()
+    #display.display_neutral()
 
     # Create threads for camera and clap detection
     camera_thread = threading.Thread(target=start_camera_module, args=(args,))
@@ -263,11 +266,13 @@ if __name__ == "__main__":
     fart_thread.start()
 
     # Set CPU affinity: reserve core 0 for clap detection and cores 1, 2, 3 for the rest
-    set_cpu_affinity(clap_thread, [0])
-    set_cpu_affinity(fart_thread, [1, 2])
     set_cpu_affinity(camera_thread, [3])
+    set_cpu_affinity(fart_thread, [1, 2])
+    set_cpu_affinity(clap_thread, [0])
 
-    display.display_face_and_return_to_neutral('rat')
+    #display.display_face_and_return_to_neutral('rat')
+
+   
     # Wait for both threads to complete (if needed)
     camera_thread.join()
     clap_thread.join()

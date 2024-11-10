@@ -70,6 +70,7 @@ class ClapDetector:
                     print("Waiting for the next symbol...")
                 # Continuously check if the double clap window has passed
                 self.check_for_double_clap_timeout()
+                time.sleep(0.1)
         except KeyboardInterrupt:
             print("Stopping...")
         finally:

@@ -66,6 +66,7 @@ class DisplayControl:
         """Private function to play an emotion animation frame by frame"""
         i = 0
         while (count < 0) or (i < count):
+            time.sleep(0.1)
             if count > 0:
                 i += 1
             try:
