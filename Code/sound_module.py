@@ -1,7 +1,7 @@
 import sounddevice as sd
 import soundfile as sf
 import threading
-
+import subprocess
 
 class SoundModule:
     _instance = None  # Singleton instance
@@ -56,9 +56,41 @@ class SoundModule:
         else:
             print(f"Audio clip {clip_name} not found in memory")
 
+    def speak_oh_yeah(self):
+        self.speak("oh yeah")
+
+    def speak_oh_no(self):
+        self.speak("oh noo")
+
+    def speak_dancing_time(self):
+        self.speak("Eh, hora, de!")
+        self.speak("dançar!")
+
+    def speak_danger(self):
+        self.speak("Eh, hora, de!")
+        self.speak("dançar!", volume=200)
+
+    def speak_danger(self):
+        self.speak("Perigo! Perigo! Perigo!", speed=100, pitch=80)
+
+    def speak(self, text, volume=100, speed=80, pitch=0):
+        """Use espeak to synthesize speech."""
+        try:
+            print(f"Speaking: {text}")
+            subprocess.run(['espeak',
+                            '-p', str(pitch), # pitch
+                            '-vpt+m1', # speaker template
+                            text,
+                            '-s', str(speed), # speed (80~280),
+                            '-a', str(volume)
+                            ], check=True)
+        except Exception as e:
+            print(f"An error occurred with espeak: {e}")
+
 # Example usage
 if __name__ == "__main__":
     sound_module = SoundModule()  # Singleton instance
     sound_module.load_audio_clips()  # Preload all audio files into memory
     sound_module.play_clip('fart')  # Play an audio clip
     sound_module.play_clip('ohyeah')  # Play another audio clip
+    #espeak -p 0 -vpt+m1 "oh noo" -s 80

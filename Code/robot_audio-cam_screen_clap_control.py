@@ -25,14 +25,17 @@ except ValueError:  # The motors were not detected.
     print("Motor driver not detected, is it connected?")
     kit = None
 
+sound_module = SoundModule()  # Singleton instance
+
+ignore_camera = False
 left_arm_state = 'down'
 right_arm_state = 'down'
 rng = np.random.default_rng()
 f_chance = 0.01
 interacting_lock = threading.Lock()
 
-ra = 9 # right arm index in motor driver
-la = 10  # left arm index in motor driver
+ra = 10 # right arm index in motor driver
+la = 9  # left arm index in motor driver
 bb = 11 # base arm index in motor driver
 
 if kit is not None:
@@ -65,18 +68,26 @@ def move_arm(arm_side, up_down):
         errors.append(f"arm_side expected to be a string 'left' or 'right', but found: {arm_side}")
     if up_down not in ['up', 'down']:
         raise Exception(f"up_down expected to be a string 'up' or 'down', but found: {up_down}")
-
+    changed_state = False
     if arm_side == 'left':
         arm_index = la
+        changed_state = changed_state or (up_down != left_arm_state)
         left_arm_state = up_down
+        if up_down == 'up':
+            kit.servo[arm_index].angle = 0
+        elif up_down == 'down':
+            kit.servo[arm_index].angle = 180
     if arm_side == 'right':
         arm_index = ra
+        changed_state = changed_state or (up_down != right_arm_state)
         right_arm_state = up_down
-    if up_down == 'up':
-        kit.servo[arm_index].angle = 0
-    elif up_down == 'down':
-        kit.servo[arm_index].angle = 180
-    print(f"Moving {arm_side} arm {up_down}")
+        if up_down == 'up':
+            kit.servo[arm_index].angle = 180
+        elif up_down == 'down':
+            kit.servo[arm_index].angle = 0
+    
+    if changed_state:
+        print(f"Moving {arm_side} arm {up_down}")
 
 # Function to display 'neutral' when idle and 'happy' when a word is detected
 # def display_neutral():
@@ -92,6 +103,7 @@ def move_arm(arm_side, up_down):
 def on_word_completed(word):
     global left_arm_state
     global right_arm_state
+    global sound_module
 
     valid_word = True
     print(f"Word Detected: {word}")
@@ -102,7 +114,20 @@ def on_word_completed(word):
     if word == "SSSS":
         print("Rotating right arm clockwise.")
         if kit is not None:
-            move_arm('right', 'down' if right_arm_state == 'up' else 'up')
+            #move_arm('right', 'down' if right_arm_state == 'up' else 'up')
+            if (left_arm_state == 'up') and (right_arm_state == 'up'):
+                sound_module.speak_dancing_time()
+                ignore_camera = True
+                for _ in range(3):
+                    move_arm('right', 'down')
+                    move_arm('left', 'up')
+                    sleep(0.5)
+                    move_arm('right', 'up')
+                    move_arm('left', 'down')
+                    sleep(0.5)
+                ignore_camera = False
+            elif (left_arm_state == 'down') and (right_arm_state == 'down'):
+                sound_module.speak_danger()
         else:
             print("Tried clockwise rotation, but the servo driver was not detected!")
 
@@ -171,20 +196,22 @@ def on_word_completed(word):
     else:
         valid_word = False
     
-    sound_module = SoundModule()  # Use the singleton instance
+    
     if valid_word:
-        sound_module.play_clip('ohyeah')
+        #sound_module.play_clip('ohyeah')
+        sound_module.speak_oh_yeah()
         display.display_face_and_return_to_neutral('happy')
     else:
-        
-        sound_module.play_clip('ohno')
+        #sound_module.play_clip('ohno')
+        sound_module.speak_oh_no()
         display.display_face_and_return_to_neutral('dizzy')
 
 
 def fart():
     global f_chance
     global rng
-    sound_module = SoundModule()  # Singleton instance
+    global sound_module
+    
     while True:
         if rng.random() < f_chance:
             move_body("left")
@@ -200,11 +227,13 @@ def fart():
 # Initialize the CameraModule
 def start_camera_module(args):
     def arm_callback(state):
-        print(f"Arm state detected: {state}")
-        if state == 'left_arm_up':
+        global ignore_camera
+        if ignore_camera:
+            return
+        if state == 'right_arm_up': # Reflected
             move_arm('left', 'up')
             move_arm('right', 'down')
-        elif state == 'right_arm_up':
+        elif state == 'left_arm_up': # Reflected
             move_arm('left', 'down')
             move_arm('right', 'up')
         elif state == 'both_arms_up':
@@ -249,7 +278,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    sound_module = SoundModule()  # Get the singleton instance of SoundModule
     sound_module.load_audio_clips()  # Preload audio clips into memory
 
     # Start the display with 'neutral' face initially
@@ -258,22 +286,22 @@ if __name__ == "__main__":
     # Create threads for camera and clap detection
     camera_thread = threading.Thread(target=start_camera_module, args=(args,))
     clap_thread = threading.Thread(target=start_clap_detection)
-    fart_thread = threading.Thread(target=fart)
+    #fart_thread = threading.Thread(target=fart)
 
     # Start both threads
     camera_thread.start()
     clap_thread.start()
-    fart_thread.start()
+    #fart_thread.start()
 
     # Set CPU affinity: reserve core 0 for clap detection and cores 1, 2, 3 for the rest
-    set_cpu_affinity(camera_thread, [3])
-    set_cpu_affinity(fart_thread, [1, 2])
-    set_cpu_affinity(clap_thread, [0])
+    set_cpu_affinity(camera_thread, [2,3])
+    set_cpu_affinity(clap_thread, [0,1])
+    #set_cpu_affinity(fart_thread, [1, 2])
 
-    #display.display_face_and_return_to_neutral('rat')
+    display.display_face_and_return_to_neutral('rat')
 
    
     # Wait for both threads to complete (if needed)
     camera_thread.join()
     clap_thread.join()
-    fart_thread.join()
+    #fart_thread.join()

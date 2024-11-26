@@ -3,7 +3,7 @@ import sounddevice as sd
 import scipy.signal
 import time
 from scipy.ndimage import gaussian_filter1d
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from adafruit_servokit import ServoKit
 from display_module import DisplayControl
 

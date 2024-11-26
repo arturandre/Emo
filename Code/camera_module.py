@@ -217,7 +217,6 @@ class CameraModule:
             if frame is not None:
                 frame = frame[:,:,:3]
                 #frame = np.transpose(frame, [1,0,2])
-                print(frame.shape)
                 if frame is not None:
                     self._process_frame(frame)
 
