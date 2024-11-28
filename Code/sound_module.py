@@ -37,7 +37,7 @@ class SoundModule:
             except Exception as e:
                 print(f"An error occurred while loading the sound file: {e}")
 
-    def _play_thread(self, clip_name):
+    def _play_clip(self, clip_name):
         """Play the audio clip from memory."""
         with self.playing_lock:  # Ensure thread safety during playback
             if clip_name in self.audio_data:
@@ -51,7 +51,7 @@ class SoundModule:
     def play_clip(self, clip_name):
         """Play the audio clip from memory."""
         if clip_name in self.audio_data:
-            play_thread = threading.Thread(target=self._play_thread, args=(clip_name,))
+            play_thread = threading.Thread(target=self._play_clip, args=(clip_name,))
             play_thread.start() 
         else:
             print(f"Audio clip {clip_name} not found in memory")
@@ -73,19 +73,32 @@ class SoundModule:
     def speak_danger(self):
         self.speak("Perigo! Perigo! Perigo!", speed=100, pitch=80)
 
-    def speak(self, text, volume=100, speed=80, pitch=0):
+    def speak_ping(self):
+        self.speak("Ping", speed=200, pitch=99, voice="f1")
+
+    def speak_pong(self):
+        self.speak("Pong", speed=80, pitch=0)
+
+    def _speak(self, text, volume=100, speed=80, pitch=0, voice="m1"):
+        with self.playing_lock:
+            try:
+                print(f"Speaking: {text}")
+                subprocess.run(['espeak',
+                                '-p', str(pitch), # pitch
+                                f'-vpt+{voice}', # speaker template
+                                text,
+                                '-s', str(speed), # speed (80~280),
+                                '-a', str(volume),
+                                ], stderr=subprocess.DEVNULL,  # Suppress error output
+                                check=True)
+            except Exception as e:
+                print(f"An error occurred with espeak: {e}")
+
+    def speak(self, text, volume=100, speed=80, pitch=0, voice="m1"):
         """Use espeak to synthesize speech."""
-        try:
-            print(f"Speaking: {text}")
-            subprocess.run(['espeak',
-                            '-p', str(pitch), # pitch
-                            '-vpt+m1', # speaker template
-                            text,
-                            '-s', str(speed), # speed (80~280),
-                            '-a', str(volume)
-                            ], check=True)
-        except Exception as e:
-            print(f"An error occurred with espeak: {e}")
+        play_thread = threading.Thread(target=self._speak, args=((text, volume, speed, pitch, voice)))
+        play_thread.start()
+
 
 # Example usage
 if __name__ == "__main__":

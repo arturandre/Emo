@@ -17,21 +17,24 @@ class ClapDetector:
         self.threshold = threshold
         self.gaussian_sigma = gaussian_sigma
         self.min_clap_duration = min_clap_duration
-        self.max_double_clap_gap = max_double_clap_gap
+        self.max_double_clap_gap = max_double_clap_gap # Wait time for second clap
         self.word_length = word_length
         self.first_clap_maximum = float("-inf")
         self.second_clap_maximum = float("-inf")
+        self.last_clap_maximum = float("-inf")
 
         # Circular buffer to store recent audio samples
         self.buffer_size = int(sample_rate * 1)  # Store 1 second of audio
         self.audio_buffer = np.zeros(self.buffer_size)
 
         # Global state for clap detection
-        self.listening_for_word = False
+        # self.listening_for_word = False
         self.current_word = []
         self.waiting_for_second_clap = False
         self.first_clap_time = None
         self.word_event_callback = None  # To hold the callback for when a word is completed
+        self.waiting_second_clap_event_callback = None
+        self.clap_completed_event_callback = None
 
     # def audio_callback(self, indata, frames, time, status):
     #     """ Callback function to continuously capture audio """
@@ -49,8 +52,15 @@ class ClapDetector:
         # Append the new audio data to the end of the buffer
         self.audio_buffer[-frames_to_use:] = indata[:frames_to_use, 0]  # Mono channel
 
-    
+    def set_waiting_second_clap_event_callback(self, callback):
+        """ Set the callback function to trigger when first clap happens and 
+        the robot starts to wait for the second clap """
+        self.waiting_second_clap_event_callback = callback
 
+    def set_clap_completed_event_callback(self, callback):
+        """ Set the callback function to trigger when a clap (not word)
+         is completed. Word completion takes precedence and cancels this event """
+        self.clap_completed_event_callback = callback
 
     def set_word_event_callback(self, callback):
         """ Set the callback function to trigger when a word is completed """
@@ -68,6 +78,11 @@ class ClapDetector:
             while True:
                 if self.detect_claps(self.audio_buffer):
                     print("Waiting for the next symbol...")
+                    if self.waiting_second_clap_event_callback:
+                        try:
+                            self.waiting_second_clap_event_callback()
+                        except Exception as e:
+                            print(f"Exception (ignored) while calling callback waiting_second_clap_event_callback: {e}")
                 # Continuously check if the double clap window has passed
                 self.check_for_double_clap_timeout()
                 time.sleep(0.1)
@@ -110,40 +125,39 @@ class ClapDetector:
         if len(peaks) > 0:
             current_time = time.time()
 
-            if not self.listening_for_word:
-                # Wake-up logic (first single clap)
-                print("Wake-up detected. Start listening for the word...")
-                self.listening_for_word = True
-                self.current_word = []  # Reset the current word
-                return True
-
             if self.waiting_for_second_clap:
-                # Check if a second clap comes in the double clap window
+                # Check for cases where the sound buffer was not cleared
                 self.second_clap_maximum = np.abs(smoothed_signal).max()
 
-                delay = current_time - self.first_clap_time
-                if (delay <= self.max_double_clap_gap):
-                    if (self.first_clap_maximum == self.second_clap_maximum):
-                        # Avoiding fake 'echoes'
-                        print("Fake echo detected! Ignoring second clap.")
-                    else:
-                        print(f"Double Clap Detected!")
-                        self.current_word.append('D')  # 'D' for double clap
-                        self.waiting_for_second_clap = False
-                        self.clear_audio_buffer()
+                if (self.last_clap_maximum == self.second_clap_maximum):
+                    # Avoiding fake 'echoes'
+                    print("Fake echo detected! Ignoring second clap.")
+                else:
+                    print(f"Double Clap Detected!")
+                    self.current_word.append('D')  # 'D' for double clap
+                    self.waiting_for_second_clap = False
+                    self.clear_audio_buffer()
 
-                        # Check if the word is complete
-                        if len(self.current_word) >= self.word_length:
-                            self.print_word_and_reset()
-
-                return True
+                    if self.clap_completed_event_callback:
+                        try:
+                            self.clap_completed_event_callback('D')
+                        except Exception as e:
+                            print(f"Exception (ignored) while calling callback clap_completed_event_callback: {e}")
+                    # Check if the word is complete
+                    if len(self.current_word) >= self.word_length:
+                        self.print_word_and_reset()
+                    return False
             else:
                 # First clap detected, now wait for potential second clap
-                print(f"First Clap Detected, waiting for potential second clap...")
                 self.first_clap_maximum = np.abs(smoothed_signal).max()
+                if self.last_clap_maximum == self.first_clap_maximum:
+                    print(f"Echo First Clap Detected, ignoring...")
+                    return False
+                print(f"First Clap Detected, waiting for potential second clap...")
                 self.first_clap_time = current_time
                 self.waiting_for_second_clap = True
                 self.clear_audio_buffer()
+                self.last_clap_maximum = self.first_clap_maximum
                 return True
 
         return False
@@ -159,6 +173,12 @@ class ClapDetector:
                 self.waiting_for_second_clap = False
                 self.clear_audio_buffer()
 
+                if self.clap_completed_event_callback:
+                    try:
+                        self.clap_completed_event_callback('S')
+                    except Exception as e:
+                        print(f"Exception (ignored) while calling callback clap_completed_event_callback: {e}")
+
                 # Check if the word is complete
                 if len(self.current_word) >= self.word_length:
                     self.print_word_and_reset()
@@ -168,8 +188,11 @@ class ClapDetector:
         word = ''.join(self.current_word[:self.word_length])
         print(f"Word completed: {word}")
         if self.word_event_callback:
-            self.word_event_callback(word)
-        self.listening_for_word = False  # Reset to wait for the next wake-up
+            try:
+                self.word_event_callback(word)
+            except Exception as e:
+                print(f"Exception (ignored) while calling callback word_event_callback: {e}")
+        # self.listening_for_word = False  # Reset to wait for the next wake-up
         self.current_word = []  # Clear the word for the next cycle
 
     def clear_audio_buffer(self):

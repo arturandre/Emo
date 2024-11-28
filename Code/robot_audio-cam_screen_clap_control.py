@@ -27,7 +27,19 @@ except ValueError:  # The motors were not detected.
 
 sound_module = SoundModule()  # Singleton instance
 
-ignore_camera = False
+# Don't use it directly, use the accessors
+_ignore_camera = False
+
+def set_ignore_camera():
+    global _ignore_camera
+    _ignore_camera = True
+    print("Ignoring camera")
+
+def reset_ignore_camera():
+    global _ignore_camera
+    _ignore_camera = False
+    print("Reading camera")
+
 left_arm_state = 'down'
 right_arm_state = 'down'
 rng = np.random.default_rng()
@@ -99,6 +111,24 @@ def move_arm(arm_side, up_down):
 #         display.show(face, 1, stop_now=True)  # Show 'dizzy' face once
 #         display_neutral()  # Go back to 'neutral' afterward
 
+def on_waiting_second_clap():
+    set_ignore_camera()
+    print("on_waiting_second_clap")
+    sound_module.speak_ping()
+    print("on_waiting_second_clap after speak")
+
+def on_clap_detected(symbol):
+    reset_ignore_camera()
+    print(f"on_clap_detected: {symbol}")
+    sound_module.speak_pong()
+    print("on_clap_detected after speak")
+    if symbol == 'S': # Single clap detected
+        pass
+    elif symbol == 'D': # Double clap detected
+        pass
+    else:
+        raise Exception(f"Unexpected clap symbol detected: {symbol}")
+
 # Define the callback function that will be triggered when a word is detected
 def on_word_completed(word):
     global left_arm_state
@@ -117,15 +147,15 @@ def on_word_completed(word):
             #move_arm('right', 'down' if right_arm_state == 'up' else 'up')
             if (left_arm_state == 'up') and (right_arm_state == 'up'):
                 sound_module.speak_dancing_time()
-                ignore_camera = True
-                for _ in range(3):
+                set_ignore_camera()
+                for _ in range(10):
                     move_arm('right', 'down')
                     move_arm('left', 'up')
                     sleep(0.5)
                     move_arm('right', 'up')
                     move_arm('left', 'down')
                     sleep(0.5)
-                ignore_camera = False
+                reset_ignore_camera()
             elif (left_arm_state == 'down') and (right_arm_state == 'down'):
                 sound_module.speak_danger()
         else:
@@ -227,8 +257,8 @@ def fart():
 # Initialize the CameraModule
 def start_camera_module(args):
     def arm_callback(state):
-        global ignore_camera
-        if ignore_camera:
+        global _ignore_camera
+        if _ignore_camera:
             return
         if state == 'right_arm_up': # Reflected
             move_arm('left', 'up')
@@ -255,10 +285,14 @@ def start_camera_module(args):
     )
     camera_module.start()
 
+
+
 # Initialize the ClapDetector and start detection
 def start_clap_detection():
-    clap_detector = ClapDetector()
+    clap_detector = ClapDetector(max_double_clap_gap=1.0)
     clap_detector.set_word_event_callback(on_word_completed)
+    clap_detector.set_waiting_second_clap_event_callback(on_waiting_second_clap)
+    clap_detector.set_clap_completed_event_callback(on_clap_detected)
     clap_detector.start_detection()
 
 # Set CPU affinity for a thread or process
