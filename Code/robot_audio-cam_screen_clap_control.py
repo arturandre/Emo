@@ -256,27 +256,39 @@ def fart():
 
 # Initialize the CameraModule
 def start_camera_module(args):
-    def arm_callback(state):
+    def pose_callback(state):
         global _ignore_camera
         if _ignore_camera:
             return
-        if state == 'right_arm_up': # Reflected
+        arm_state, hand_state = state
+        if hand_state is None:
+            pass
+        elif hand_state == "open_hand":
+            print("open_hand")
+        elif hand_state == "closed_hand":
+            print("closed_hand")
+        else:
+            raise Exception(f"Unexpected hand state: {hand_state}")
+
+        if arm_state is None:
+            pass # No arm detected
+        elif arm_state == 'right_arm_up': # Reflected
             move_arm('left', 'up')
             move_arm('right', 'down')
-        elif state == 'left_arm_up': # Reflected
+        elif arm_state == 'left_arm_up': # Reflected
             move_arm('left', 'down')
             move_arm('right', 'up')
-        elif state == 'both_arms_up':
+        elif arm_state == 'both_arms_up':
             move_arm('left', 'up')
             move_arm('right', 'up')
-        elif state == 'both_arms_down':
+        elif arm_state == 'both_arms_down':
             move_arm('left', 'down')
             move_arm('right', 'down')
         else:
-            raise Exception(f"Unexpected arm state: {state}")
+            raise Exception(f"Unexpected arm state: {arm_state}")
     
     camera_module = CameraModule(
-        callback=arm_callback,
+        callback=pose_callback,
         video_source=args.video_source,
         show_gui=args.show_gui,
         libcamera=args.libcamera,

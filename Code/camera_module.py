@@ -7,6 +7,9 @@ from queue import Queue
 import threading
 from tflite_runtime.interpreter import Interpreter
 
+# For hand recognition
+from mediapipe import solutions as mp_solutions
+
 class CameraModule:
     def __init__(self,
                  callback=None,
@@ -25,13 +28,14 @@ class CameraModule:
             show_gui (bool): Whether to show the GUI for visual feedback.
             libcamera (bool): Whether to use libcamera on Raspberry Pi.
             debug (bool): Whether to enable debug mode.
-            use_mpipe (bool): Whether to use MediaPipe for arm detection.
+            use_mpipe (bool): Whether to use MediaPipe for hand detection
         """
         self.callback = callback
         self.video_source = video_source
         self.show_gui = show_gui
         self.libcamera = libcamera
         self.vid = vid
+        self.use_mpipe = use_mpipe
         self.debug = debug
         self.cap = None
         self.frame_width = 640
@@ -46,6 +50,46 @@ class CameraModule:
         self.interpreter.allocate_tensors()
         self.input_details = self.interpreter.get_input_details()
         self.output_details = self.interpreter.get_output_details()
+
+        # Initialize MediaPipe Hands
+        self.mp_hands = mp_solutions.hands.Hands(
+            static_image_mode=False,
+            max_num_hands=2,
+            min_detection_confidence=0.7,
+            min_tracking_confidence=0.7
+        )
+
+    def classify_hand_landmarks(self, landmarks):
+        """Classify hand gesture as open or closed based on relative L1 distances."""
+        WRIST = 0
+        FINGER_TIPS = [4, 8, 12, 16, 20]
+        FINGER_MIDDLES = [3, 6, 10, 14, 18]
+
+        palm_center = np.array([landmarks[WRIST].x, landmarks[WRIST].y])
+        hand_size = np.sum(np.abs(np.array([landmarks[9].x, landmarks[9].y]) - palm_center))
+
+        extended_fingers = 0
+        for tip, middle in zip(FINGER_TIPS, FINGER_MIDDLES):
+            tip_pos = np.array([landmarks[tip].x, landmarks[tip].y])
+            middle_pos = np.array([landmarks[middle].x, landmarks[middle].y])
+
+            tip_distance = np.sum(np.abs(tip_pos - palm_center)) / hand_size
+            middle_distance = np.sum(np.abs(middle_pos - palm_center)) / hand_size
+
+            if tip_distance > middle_distance + 0.3:
+                extended_fingers += 1
+
+        return "open_hand" if extended_fingers >= 3 else "closed_hand"
+    
+    def _detect_hand_gestures(self, frame):
+        """Detect hand gestures using MediaPipe."""
+        #results = self.mp_hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        results = self.mp_hands.process(frame)
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                gesture = self.classify_hand_landmarks(hand_landmarks.landmark)
+                return gesture
+        return None # No hands detected
 
     def resize_with_padding(self, frame, target_size=192):
         # Get the original dimensions
@@ -235,9 +279,17 @@ class CameraModule:
         
 
         arm_state = self._detect_arm_state_movenet(frame)
+        if self.use_mpipe:
+            hand_state = self._detect_hand_gestures(frame)
+            result_state = (arm_state, hand_state)
+        else:
+            result_state = (arm_state, None)
 
-        if arm_state and self.callback:
-            self.callback(arm_state)
+
+        
+
+        if any(result_state) and self.callback:
+            self.callback(result_state)
 
         if self.show_gui:
             cv2.imshow("Arm Detection", frame)
