@@ -8,56 +8,42 @@ import threading
 from tflite_runtime.interpreter import Interpreter
 
 # For hand recognition
-from mediapipe import solutions as mp_solutions
+import mediapipe as mp
+from mediapipe import solutions
+from mediapipe.framework.formats import landmark_pb2
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+from mediapipe.framework.formats.landmark_pb2 import NormalizedLandmark
 
-class CameraModule:
-    def __init__(self,
-                 callback=None,
-                 video_source=0,
-                 show_gui=False,
-                 libcamera=False,
-                 vid=False,
-                 debug=False,
-                 use_mpipe=False):
-        """
-        Initializes the camera module.
-        
-        Args:
-            callback (function): A callback function to handle arm state changes.
-            video_source (int or str): Video source (camera index or video file path).
-            show_gui (bool): Whether to show the GUI for visual feedback.
-            libcamera (bool): Whether to use libcamera on Raspberry Pi.
-            debug (bool): Whether to enable debug mode.
-            use_mpipe (bool): Whether to use MediaPipe for hand detection
-        """
-        self.callback = callback
-        self.video_source = video_source
-        self.show_gui = show_gui
-        self.libcamera = libcamera
-        self.vid = vid
-        self.use_mpipe = use_mpipe
-        self.debug = debug
-        self.cap = None
-        self.frame_width = 640
-        self.frame_height = 480
-        self.frame_size = int(self.frame_width * self.frame_height * 1.5)  # For YUV420 format in libcamera
-        self.stop_signal = False
-        self.shm_file = '/dev/shm/last_frame.jpg'
-        self.frame_queue = Queue(maxsize=1)  # We only want the latest frame, so maxsize is set to 1
+class HandGestureDetector:
+    def __init__(self, model_path="hand_landmarker.task"):
+        """Initialize the Hand Gesture Detector with MediaPipe Hand Landmarker."""
+        model_path = "/home/pi/Emo/Code/models/palm/hand_landmarker.task"
+        base_options = python.BaseOptions(model_asset_path=model_path)
+        options = vision.HandLandmarkerOptions(base_options=base_options, num_hands=2)
+        self.mp_hands = vision.HandLandmarker.create_from_options(options)
 
-        # Initialize MoveNet TFLite model
-        self.interpreter = Interpreter(model_path="/home/pi/Emo/Code/models/pose/movenet_singlepose_lightning_int8.tflite")
-        self.interpreter.allocate_tensors()
-        self.input_details = self.interpreter.get_input_details()
-        self.output_details = self.interpreter.get_output_details()
+    def _detect_hand_gestures(self, frame):
+        """Detect hand gestures using the new MediaPipe Hand Landmarker API."""
+        # Convert the frame to MediaPipe Image format
+        mp_frame = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
 
-        # Initialize MediaPipe Hands
-        self.mp_hands = mp_solutions.hands.Hands(
-            static_image_mode=False,
-            max_num_hands=2,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.7
-        )
+        # Perform hand landmark detection
+        results = self.mp_hands.detect(mp_frame)
+
+        # Check if any hand landmarks are detected
+        if results.hand_landmarks:
+            for hand_landmarks in results.hand_landmarks:
+                # Convert landmarks to a list of NormalizedLandmark objects
+                landmarks = [
+                    NormalizedLandmark(
+                        x=lm.x, y=lm.y, z=lm.z
+                    ) for lm in hand_landmarks
+                ]
+                # Classify the gesture based on landmarks
+                gesture = self.classify_hand_landmarks(landmarks)
+                return gesture
+        return None  # No hands detected
 
     def classify_hand_landmarks(self, landmarks):
         """Classify hand gesture as open or closed based on relative L1 distances."""
@@ -80,16 +66,51 @@ class CameraModule:
                 extended_fingers += 1
 
         return "open_hand" if extended_fingers >= 3 else "closed_hand"
-    
-    def _detect_hand_gestures(self, frame):
-        """Detect hand gestures using MediaPipe."""
-        #results = self.mp_hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        results = self.mp_hands.process(frame)
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                gesture = self.classify_hand_landmarks(hand_landmarks.landmark)
-                return gesture
-        return None # No hands detected
+
+class CameraModule:
+    def __init__(self,
+                 callback=None,
+                 hand_callback=None,
+                 video_source=0,
+                 show_gui=False,
+                 libcamera=False,
+                 vid=False,
+                 debug=False,
+                 use_mpipe=False):
+        """
+        Initializes the camera module.
+        
+        Args:
+            callback (function): A callback function to handle arm state changes.
+            callback (function): A callback function to handle hand state changes.
+            video_source (int or str): Video source (camera index or video file path).
+            show_gui (bool): Whether to show the GUI for visual feedback.
+            libcamera (bool): Whether to use libcamera on Raspberry Pi.
+            debug (bool): Whether to enable debug mode.
+            use_mpipe (bool): Whether to use MediaPipe for hand detection
+        """
+        self.callback = callback
+        self.hand_callback = hand_callback
+        self.video_source = video_source
+        self.show_gui = show_gui
+        self.libcamera = libcamera
+        self.vid = vid
+        self.use_mpipe = use_mpipe
+        self.debug = debug
+        self.cap = None
+        self.frame_width = 640
+        self.frame_height = 480
+        self.frame_size = int(self.frame_width * self.frame_height * 1.5)  # For YUV420 format in libcamera
+        self.stop_signal = False
+        self.shm_file = '/dev/shm/last_frame.jpg'
+        self.frame_queue = Queue(maxsize=1)  # We only want the latest frame, so maxsize is set to 1
+
+        # Initialize MoveNet TFLite model
+        self.interpreter = Interpreter(model_path="/home/pi/Emo/Code/models/pose/movenet_singlepose_lightning_int8.tflite")
+        self.interpreter.allocate_tensors()
+        self.input_details = self.interpreter.get_input_details()
+        self.output_details = self.interpreter.get_output_details()
+        self.gesture_detector = HandGestureDetector(model_path="hand_landmarker.task")
 
     def resize_with_padding(self, frame, target_size=192):
         # Get the original dimensions
@@ -278,18 +299,14 @@ class CameraModule:
         cv2.imwrite('/dev/shm/last_frame_debug.jpg', frame)
         
 
-        arm_state = self._detect_arm_state_movenet(frame)
         if self.use_mpipe:
-            hand_state = self._detect_hand_gestures(frame)
-            result_state = (arm_state, hand_state)
-        else:
-            result_state = (arm_state, None)
+            hand_state = self.gesture_detector._detect_hand_gestures(frame)
+            if hand_state and self.hand_callback:
+                self.hand_callback(hand_state)
 
-
-        
-
-        if any(result_state) and self.callback:
-            self.callback(result_state)
+        arm_state = self._detect_arm_state_movenet(frame)
+        if arm_state and self.callback:
+            self.callback(arm_state)
 
         if self.show_gui:
             cv2.imshow("Arm Detection", frame)

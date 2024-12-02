@@ -256,11 +256,10 @@ def fart():
 
 # Initialize the CameraModule
 def start_camera_module(args):
-    def pose_callback(state):
+    def hand_callback(hand_state):
         global _ignore_camera
         if _ignore_camera:
             return
-        arm_state, hand_state = state
         if hand_state is None:
             pass
         elif hand_state == "open_hand":
@@ -269,6 +268,11 @@ def start_camera_module(args):
             print("closed_hand")
         else:
             raise Exception(f"Unexpected hand state: {hand_state}")
+
+    def pose_callback(arm_state):
+        global _ignore_camera
+        if _ignore_camera:
+            return
 
         if arm_state is None:
             pass # No arm detected
@@ -289,6 +293,7 @@ def start_camera_module(args):
     
     camera_module = CameraModule(
         callback=pose_callback,
+        hand_callback=hand_callback,
         video_source=args.video_source,
         show_gui=args.show_gui,
         libcamera=args.libcamera,
